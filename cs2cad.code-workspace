@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../Projects/StartUp/terminal_app"
+		}, 
+		{
+			"path": "../../Projects/StartUp/datalchemy"
+		}
+	],
+	"settings": {}
+}
