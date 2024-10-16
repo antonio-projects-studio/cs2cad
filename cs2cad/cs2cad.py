@@ -44,7 +44,7 @@ def cs2cad(
     if not save_path.exists():
         os.mkdir(save_path)
 
-    write_step_file(out_shape, generate_path(save_path / f"{name}.step"))
+    write_step_file(out_shape, generate_path(save_path / f"{name}.step").as_posix())
 
 
 # src_dir = args.src
