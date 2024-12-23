@@ -53,6 +53,7 @@ def process_one(
 
 def process_many(
     links_yml_file: Path | str,
+    truck_id: str | None = None,
     n_jobs: int = multiprocessing.cpu_count(),
     save_dir: Path | str = PROJECT_CONFIG.DOCUMENT_DIR,
 ) -> None:
@@ -62,10 +63,10 @@ def process_many(
     if isinstance(save_dir, str):
         save_dir = Path(save_dir)
 
-    name = links_yml_file.name
+    name = links_yml_file.stem
 
-    truck_id = name.split(".")[0].split("_")[-1]
-    
+    truck_id = name if truck_id is None else truck_id
+
     save_dir = save_dir / truck_id
 
     if not os.path.exists(save_dir):
@@ -88,6 +89,6 @@ def process_many(
 
     print("Valid: {}\nTotal: {}".format(np.sum(count > 0), total_n))
     print("Distribution:")
-    
+
     for n in np.unique(count):
         print(n, np.sum(count == n))

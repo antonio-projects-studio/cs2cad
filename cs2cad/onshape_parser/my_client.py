@@ -1,3 +1,8 @@
+import yaml
+from pathlib import Path
+
+from terminal_app.env import PROJECT_CONFIG
+
 from .apikey.client import Client
 
 
@@ -5,6 +10,36 @@ class MyClient(Client):
     """inherited from OnShape public apikey python client,
     with additional method for parsing cad.
     """
+
+    def query2yml(
+        self,
+        query: str,
+        limit: int,
+        name: str | None = None,
+        save_folder: Path | str = PROJECT_CONFIG.DOCUMENT_DIR,
+    ) -> Path:
+        response = self.documents_id(filter="public", query=query, limit=limit)
+        links = []
+        for doc in response:
+            links += self.document_links(doc)
+
+        fd = len(str(len(links)))
+        result_dict = {f"{ind:0{fd}d}": link for ind, link in enumerate(links)}
+
+        if isinstance(save_folder, str):
+            save_folder = Path(save_folder)
+
+        file_path = (
+            save_folder / f"{query.replace(' ', '_') if name is None else name}.yml"
+        )
+
+        with open(
+            file_path,
+            "w",
+        ) as f:
+            f.write(yaml.dump(result_dict, default_flow_style=False))
+
+        return file_path
 
     def get_tessellatedfaces(self, did, wid, eid):
         """

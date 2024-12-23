@@ -10,7 +10,9 @@ from .onshape import Onshape
 import os
 import random
 import string
+from urllib import parse
 import mimetypes
+from typing import Literal
 
 
 class Client:
@@ -84,7 +86,7 @@ class Client:
 
         return self._api.request("delete", "/api/documents/" + did)
 
-    def get_document(self, did):
+    def get_document(self, did: str):
         """
         Get details for a specified document.
 
@@ -97,15 +99,181 @@ class Client:
 
         return self._api.request("get", "/api/documents/" + did)
 
-    def list_documents(self):
+    def get_versions(self, did: str):
+        """
+        Get details for a specified document.
+
+        Args:
+            - did (str): Document ID
+
+        Returns:
+            - requests.Response: Onshape response data
+        """
+
+        return self._api.request("get", f"/api/documents/{did}/versions")
+
+    def get_tabs(
+        self, did: str, wv: Literal["workspace", "version", "microversion"], wvmid: str
+    ):
+        """
+        Get details for a specified document.
+
+        Args:
+            - did (str): Document ID
+
+        Returns:
+            - requests.Response: Onshape response data
+        """
+        mode = ""
+
+        match wv:
+            case "workspace":
+                mode = "w"
+            case "version":
+                mode = "v"
+            case "microversion":
+                mode = "m"
+
+        return self._api.request(
+            "get", f"/api/documents/d/{did}/{mode}/{wvmid}/elements"
+        )
+
+    def get_workspaces(self, did: str):
+        """
+        Get details for a specified document.
+
+        Args:
+            - did (str): Document ID
+
+        Returns:
+            - requests.Response: Onshape response data
+        """
+
+        return self._api.request("get", "/api/documents/" + did + "/workspaces")
+
+    def get_documents(
+        self,
+        filter: Literal["my", "public"] | Literal[0, 1, 2, 3, 4] = "my",
+        q: str = "",
+        limit: int = 20,
+        offset: int = 0,
+    ):
         """
         Get list of documents for current user.
 
         Returns:
             - requests.Response: Onshape response data
         """
+        params = {}
+        if q:
+            params["q"] = q
 
-        return self._api.request("get", "/api/documents")
+        if filter == "public":
+            params["filter"] = 4
+        elif filter == "my":
+            params["filter"] = 0
+
+        else:
+            try:
+                filter = int(filter)  # type: ignore
+                params["filter"] = filter
+            except:
+                pass
+
+        if offset:
+            params["offset"] = offset
+
+        params["limit"] = limit
+
+        return self._api.request("get", "/api/documents", params=params)
+
+    def search_documents(
+        self,
+        filter: Literal["my", "public"] | Literal[0, 1, 2, 3, 4] = "my",
+        q: str = "",
+        limit: int = 20,
+        offset: int = 0,
+    ):
+        """
+        Get list of documents for current user.
+
+        Returns:
+            - requests.Response: Onshape response data
+        """
+        params = {}
+        if filter == "public":
+            params["documentFilter"] = 4
+        elif filter == "my":
+            params["documentFilter"] = 0
+
+        else:
+            try:
+                filter = int(filter)  # type: ignore
+                params["documentFilter"] = filter
+            except:
+                pass
+
+        params.update(
+            {
+                "foundIn": "w",
+                "limit": limit,
+                "offset": offset,
+                "ownerId": "",
+                "parentId": "ALL",
+                "rawQuery": f"_all:{q} type:partstudio" if q else "",
+                "sortColumn": "createdAt",
+                "sortOrder": "desc",
+                "type": "string",
+                "when": "latest",
+            }
+        )
+
+        return self._api.request("post", "/api/documents/search", body=params)
+
+    def documents_id(
+        self, filter: Literal["my", "public"] = "my", query: str = "", limit: int = 20
+    ) -> list[str]:
+        if limit < 0:
+            unlimited = True
+        else:
+            unlimited = False
+        response = self.search_documents(
+            filter, query, limit if limit < 20 and not unlimited else 20
+        ).json()
+        result = [doc["id"] for doc in response["items"]]
+
+        if limit > 20 or unlimited:
+            limit -= len(result)
+            while unlimited or limit > 0:
+                params = parse.parse_qs(parse.urlparse(response["next"]).query)
+                params = {
+                    k: v[0] if v and len(v) == 1 else v for k, v in params.items()
+                }
+
+                if params:
+                    params["limit"] = limit if limit < 20 and not unlimited else 20
+                    params["q"] = query
+                    params["filter"] = filter
+                    response = self.search_documents(**params).json()  # type: ignore
+                    new = [doc["id"] for doc in response["items"]]
+                    limit -= len(new)
+                    result += new
+
+                else:
+                    break
+
+        return result
+
+    def document_links(self, did: str) -> list[str]:
+        result: list[str] = []
+        workspaces = [ws["id"] for ws in self.get_workspaces(did).json()]
+
+        for ws in workspaces:
+            tabs = [t["id"] for t in self.get_tabs(did, "workspace", ws).json()]
+            for t in tabs:
+                result.append(f"https://cad.onshape.com/documents/{did}/w/{ws}/e/{t}")
+
+        return result
 
     def create_assembly(self, did, wid, name="My Assembly"):
         """

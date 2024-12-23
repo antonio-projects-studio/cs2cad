@@ -27,7 +27,8 @@ from terminal_app.env import PROJECT_CONFIG, source
 
 __all__ = ["Onshape"]
 
-source('.onshape.env')
+source(".onshape.env")
+
 
 class Onshape:
     """
@@ -41,7 +42,11 @@ class Onshape:
 
     # def __init__(self, stack, creds='./sketchgraphs/onshape/creds/creds.json', logging=True):
     def __init__(
-        self, stack, creds=PROJECT_CONFIG.CONFIG_DIR / "creds.json", logging=True
+        self,
+        stack,
+        creds=PROJECT_CONFIG.CONFIG_DIR / "creds.json",
+        logging: bool = True,
+        url_logging: bool = True,
     ):
         """
         Instantiates an instance of the Onshape class. Reads credentials from a JSON file
@@ -74,6 +79,7 @@ class Onshape:
                     self._access_key = stacks[stack]["access_key"].encode("utf-8")
                     self._secret_key = stacks[stack]["secret_key"].encode("utf-8")
                     self._logging = logging
+                    self._url_logging = url_logging
                 else:
                     raise ValueError("specified stack not in file")
             except TypeError:
@@ -101,7 +107,9 @@ class Onshape:
 
         return nonce
 
-    def _make_auth(self, method, date, nonce, path, query={}, ctype="application/json"):
+    def _make_auth(
+        self, method, date, nonce, path, params={}, ctype="application/json"
+    ):
         """
         Create the request signature to authenticate
 
@@ -114,7 +122,7 @@ class Onshape:
             - ctype (str, default='application/json'): HTTP Content-Type
         """
 
-        query = urllib.parse.urlencode(query)
+        params = urllib.parse.urlencode(params)
 
         hmac_str = (
             (
@@ -128,7 +136,7 @@ class Onshape:
                 + "\n"
                 + path
                 + "\n"
-                + query
+                + params
                 + "\n"
             )
             .lower()
@@ -148,7 +156,7 @@ class Onshape:
         if self._logging:
             utils.log(
                 {
-                    "query": query,
+                    "query": params,
                     "hmac_str": hmac_str,
                     "signature": signature,
                     "auth": auth,
@@ -157,7 +165,7 @@ class Onshape:
 
         return auth
 
-    def _make_headers(self, method, path, query={}, headers={}):
+    def _make_headers(self, method, path, params={}, headers={}):
         """
         Creates a headers object to sign the request
 
@@ -171,7 +179,9 @@ class Onshape:
             - dict: Dictionary containing all headers
         """
 
-        date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        date = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
         nonce = self._make_nonce()
         ctype = (
             headers.get("Content-Type")
@@ -179,7 +189,7 @@ class Onshape:
             else "application/json"
         )
 
-        auth = self._make_auth(method, date, nonce, path, query=query, ctype=ctype)
+        auth = self._make_auth(method, date, nonce, path, params=params, ctype=ctype)
 
         req_headers = {
             "Content-Type": "application/json",
@@ -200,7 +210,7 @@ class Onshape:
         self,
         method,
         path,
-        query={},
+        params={},
         headers={},
         body={},
         base_url=None,
@@ -224,14 +234,17 @@ class Onshape:
             - requests.Response: Object containing the response from Onshape
         """
 
-        req_headers = self._make_headers(method, path, query, headers)
+        req_headers = self._make_headers(method, path, params, headers)
         if base_url is None:
             base_url = self._url
-        url = base_url + path + "?" + urllib.parse.urlencode(query)
+        url = base_url + path + "?" + urllib.parse.urlencode(params)
 
         if self._logging:
             utils.log(body)
             utils.log(req_headers)
+            utils.log("request url: " + url)
+
+        if not self._logging and self._url_logging:
             utils.log("request url: " + url)
 
         # only parse as json string if we have to
@@ -264,7 +277,7 @@ class Onshape:
             return self.request(
                 method,
                 location.path,
-                query=new_query,
+                params=new_query,
                 headers=headers,
                 base_url=new_base_url,
             )
