@@ -19,6 +19,8 @@ setup(
         "h5py",
         "matplotlib",
         "trimesh",
-        "terminal_app @ git+https://github.com/antonio-projects-studio/terminal_app.git"
+        "PyYAML",
+        "joblib",
+        "terminal_app @ git+https://github.com/antonio-projects-studio/terminal_app.git",
     ],
 )

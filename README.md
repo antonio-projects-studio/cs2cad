@@ -1,9 +1,10 @@
-# CS2CAD
+# cs2cad
 
 ## Requirements
 
 ```sh
 conda create -n cs2cad python=3.10
+conda activate cs2cad
 conda install -c conda-forge pythonocc-core=7.8.1
 pip install git+https://github.com/antonio-projects-studio/cs2cad
 ```
