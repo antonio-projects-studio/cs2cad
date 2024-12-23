@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="cs2cad",
-    version="0.0.1",
+    version="0.0.2",
     author="Antonio Rodrigues",
     author_email="antonio.projects.studio@gmail.com",
     description="Library for databases",
