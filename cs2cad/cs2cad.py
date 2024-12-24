@@ -1,18 +1,23 @@
 import os
 import json
 from pathlib import Path
+from typing import Literal
 
 from OCC.Extend.DataExchange import write_step_file
 
 from cs2cad.cadlib.extrude import CADSequence
 from cs2cad.cadlib.visualize import create_CAD
 
+from terminal_app.env import PROJECT_CONFIG
 from terminal_app.naming import generate_path
 
 
 def cs2cad(
-    json_file: Path | str | dict, save_path: Path | str, name: str | None = None
-) -> None:
+    json_file: Path | str | dict,
+    save_path: Path | str = PROJECT_CONFIG.DOCUMENT_DIR,
+    name: str | None = None,
+    mode: Literal["new", "replace", "continue"] = "continue",
+) -> bool:
     naming: bool = name is None
     name = "cs2cad" if name is None else name
 
@@ -28,10 +33,23 @@ def cs2cad(
         if naming:
             name = Path(json_file).stem
 
-        with open(json_file, "r") as f:
-            data = json.load(f)
+        try:
+            with open(json_file, "r") as f:
+                data = json.load(f)
+        except Exception as ex:
+            print(f"cs2cad ERROR: {json_file}, {ex}")
+            return False
     else:
         data = json_file
+
+    save_file = save_path / f"{name}.step"
+
+    match mode:
+        case "continue":
+            if save_file.exists():
+                return True
+        case "new":
+            save_file = generate_path(save_file, create=False)
 
     try:
         cad_seq = CADSequence.from_dict(data)
@@ -40,45 +58,10 @@ def cs2cad(
 
     except:
         print("cs2cad ERROR: Load and create failed.")
+        return False
 
     if not save_path.exists():
         os.mkdir(save_path)
 
-    write_step_file(out_shape, generate_path(save_path / f"{name}.step").as_posix())
-
-
-# src_dir = args.src
-# print(src_dir)
-# out_paths = sorted(glob.glob(os.path.join(src_dir, "*.{}".format(args.form))))
-# if args.num != -1:
-#     out_paths = out_paths[args.idx : args.idx + args.num]
-# save_dir = args.src + "_step" if args.outputs is None else args.outputs
-# ensure_dir(save_dir)
-
-# for path in out_paths:
-#     print(path)
-#     try:
-#         if args.form == "h5":
-#             with h5py.File(path, "r") as fp:
-#                 out_vec = fp["out_vec"][:].astype(np.float)
-#                 out_shape = vec2CADsolid(out_vec)
-#         else:
-#             with open(path, "r") as fp:
-#                 data = json.load(fp)
-#             cad_seq = CADSequence.from_dict(data)
-#             cad_seq.normalize()
-#             out_shape = create_CAD(cad_seq)
-
-#     except Exception as e:
-#         print("load and create failed.")
-#         continue
-
-#     if args.filter:
-#         analyzer = BRepCheck_Analyzer(out_shape)
-#         if not analyzer.IsValid():
-#             print("detect invalid.")
-#             continue
-
-#     name = path.split("/")[-1].split(".")[0]
-#     save_path = os.path.join(save_dir, name + ".step")
-#     write_step_file(out_shape, save_path)
+    write_step_file(out_shape, save_file.as_posix())
+    return True

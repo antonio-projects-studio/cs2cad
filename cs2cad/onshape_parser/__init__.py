@@ -1,3 +1,3 @@
-__all__ = ["process_one", "process_many"]
+__all__ = ["process_one", "process_many", "ParsingStatistic"]
 
-from .process import process_one, process_many
+from .process import process_one, process_many, ParsingStatistic

@@ -2,10 +2,10 @@ import os
 import json
 import yaml
 import numpy as np
-import multiprocessing
 from joblib import Parallel, delayed
 
 from pathlib import Path
+from dataclasses import dataclass
 
 from terminal_app.env import PROJECT_CONFIG
 
@@ -17,12 +17,27 @@ from .parser import FeatureListParser
 c = MyClient(logging=False)
 
 
+@dataclass
+class ParsingStatistic:
+    truck_id: str
+    total: int
+    valid: int
+    distribution: list[tuple[int, int]]
+
+    def __str__(self) -> str:
+        return "Total: {}\nValid: {}\nDistribution: {}".format(
+            self.total,
+            self.valid,
+            "\n".join(f"{n}: {cnt}" for n, cnt in self.distribution),
+        )
+
+
 def process_one(
     data_id: str, link: str, save_dir: Path | str = PROJECT_CONFIG.DOCUMENT_DIR
 ) -> int:
     save_path = os.path.join(save_dir, "{}.json".format(data_id))
-    # if os.path.exists(save_path):
-    #     return 1
+    if os.path.exists(save_path):
+        return 1
 
     v_list = link.split("/")
     did, wid, eid = v_list[-5], v_list[-3], v_list[-1]
@@ -54,9 +69,9 @@ def process_one(
 def process_many(
     links_yml_file: Path | str,
     truck_id: str | None = None,
-    n_jobs: int = multiprocessing.cpu_count(),
+    n_jobs: int = -1,
     save_dir: Path | str = PROJECT_CONFIG.DOCUMENT_DIR,
-) -> None:
+) -> tuple[Path, ParsingStatistic]:
     if isinstance(links_yml_file, str):
         links_yml_file = Path(links_yml_file)
 
@@ -87,8 +102,11 @@ def process_many(
     )
     count = np.array(count)
 
-    print("Valid: {}\nTotal: {}".format(np.sum(count > 0), total_n))
-    print("Distribution:")
+    statistic = ParsingStatistic(
+        truck_id=truck_id,
+        total=total_n,
+        valid=int(np.sum(count > 0)),
+        distribution=[(int(n), int(np.sum(count == n))) for n in np.unique(count)],
+    )
 
-    for n in np.unique(count):
-        print(n, np.sum(count == n))
+    return save_dir, statistic
